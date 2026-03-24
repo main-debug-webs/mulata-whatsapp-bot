@@ -1,6 +1,7 @@
 import logging
 import asyncio
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, HTTPException
+from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from agent.providers import obtener_proveedor
@@ -39,9 +40,15 @@ app.add_middleware(
 )
 
 
+@app.get("/")
+async def root():
+    """Endpoint raíz — requerido por Railway para health checks."""
+    return {"status": "ok", "service": "agentkit"}
+
+
 @app.get("/health")
 async def health_check():
-    """Endpoint de salud para verificar que el servidor está activo."""
+    """Endpoint de salud alternativo."""
     return {"status": "healthy"}
 
 
@@ -49,8 +56,8 @@ async def health_check():
 async def webhook_get(request: Request):
     """Validación GET del webhook (solo Meta la requiere)."""
     respuesta = await proveedor.validar_webhook(request)
-    if respuesta:
-        return respuesta
+    if respuesta is not None:
+        return PlainTextResponse(str(respuesta))
     return {"status": "ok"}
 
 
@@ -84,7 +91,7 @@ async def webhook_post(request: Request):
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Error procesando webhook: {e}", exc_info=True)
-        return {"status": "error", "detail": str(e)}, 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
