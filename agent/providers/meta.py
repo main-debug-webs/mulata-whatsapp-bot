@@ -26,9 +26,14 @@ class ProveedorMeta(ProveedorWhatsApp):
         token = params.get("hub.verify_token")
         challenge = params.get("hub.challenge")
 
+        logger.info(f"Webhook validation attempt - mode: {mode}, token: {token[:20]}..., challenge: {challenge}")
+
         if mode == "subscribe" and token == self.verify_token:
+            logger.info("✓ Webhook validation SUCCESS")
             # Meta espera el challenge como respuesta en texto plano
             return int(challenge)
+
+        logger.warning(f"✗ Webhook validation FAILED - Expected token: {self.verify_token[:20]}...")
         return None
 
     async def parsear_webhook(self, request: Request) -> list[MensajeEntrante]:
