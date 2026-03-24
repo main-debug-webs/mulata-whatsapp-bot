@@ -26,7 +26,10 @@ class ProveedorMeta(ProveedorWhatsApp):
         token = params.get("hub.verify_token")
         challenge = params.get("hub.challenge")
 
-        logger.info(f"Webhook validation attempt - mode: {mode}, token: {token[:20]}..., challenge: {challenge}")
+        if token:
+            logger.info(f"Webhook validation attempt - mode: {mode}, token: {token[:20]}..., challenge: {challenge}")
+        else:
+            logger.info(f"Webhook validation attempt - no token provided")
 
         if mode == "subscribe" and token == self.verify_token:
             logger.info("✓ Webhook validation SUCCESS")
