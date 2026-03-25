@@ -71,8 +71,12 @@ class ProveedorMeta(ProveedorWhatsApp):
 
     async def enviar_mensaje(self, telefono: str, mensaje: str) -> bool:
         """Envía mensaje via Meta WhatsApp Cloud API."""
+        logger.info(f"Intentando enviar mensaje a {telefono}")
+        logger.info(f"ACCESS_TOKEN presente: {bool(self.access_token)} (len={len(self.access_token)})")
+        logger.info(f"PHONE_NUMBER_ID: {self.phone_number_id}")
+
         if not self.access_token or not self.phone_number_id:
-            logger.warning("META_ACCESS_TOKEN o META_PHONE_NUMBER_ID no configurados")
+            logger.error("META_ACCESS_TOKEN o META_PHONE_NUMBER_ID no configurados - no se puede enviar")
             return False
 
         url = f"https://graph.facebook.com/{self.api_version}/{self.phone_number_id}/messages"
@@ -87,8 +91,17 @@ class ProveedorMeta(ProveedorWhatsApp):
             "text": {"body": mensaje},
         }
 
-        async with httpx.AsyncClient() as client:
-            r = await client.post(url, json=payload, headers=headers)
-            if r.status_code != 200:
-                logger.error(f"Error Meta API: {r.status_code} — {r.text}")
-            return r.status_code == 200
+        logger.info(f"Enviando a URL: {url}")
+        logger.info(f"Payload: to={telefono}, mensaje={mensaje[:50]}...")
+
+        try:
+            async with httpx.AsyncClient() as client:
+                r = await client.post(url, json=payload, headers=headers)
+                logger.info(f"Respuesta Meta API: status={r.status_code}")
+                logger.info(f"Respuesta Meta API body: {r.text}")
+                if r.status_code != 200:
+                    logger.error(f"Error Meta API: {r.status_code} — {r.text}")
+                return r.status_code == 200
+        except Exception as e:
+            logger.error(f"Excepción al enviar mensaje: {e}", exc_info=True)
+            return False
