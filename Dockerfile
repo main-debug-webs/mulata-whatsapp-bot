@@ -9,5 +9,4 @@ COPY . .
 
 EXPOSE 8000
 
-# Usar $PORT de Railway (inyectado como env var)
-CMD uvicorn agent.main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD ["sh", "-c", "uvicorn agent.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
