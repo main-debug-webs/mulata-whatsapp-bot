@@ -14,10 +14,19 @@ class ProveedorMeta(ProveedorWhatsApp):
     """Proveedor de WhatsApp usando la API oficial de Meta (Cloud API)."""
 
     def __init__(self):
-        self.access_token = os.getenv("META_ACCESS_TOKEN")
-        self.phone_number_id = os.getenv("META_PHONE_NUMBER_ID")
-        self.verify_token = os.getenv("META_VERIFY_TOKEN", "agentkit-verify")
+        self.access_token = os.environ.get("META_ACCESS_TOKEN", "")
+        self.phone_number_id = os.environ.get("META_PHONE_NUMBER_ID", "")
+        self.verify_token = os.environ.get("META_VERIFY_TOKEN", "")
         self.api_version = "v21.0"
+
+        # Log de diagnóstico al inicializar
+        logger.info(f"META_ACCESS_TOKEN configurado: {bool(self.access_token)} (len={len(self.access_token)})")
+        logger.info(f"META_PHONE_NUMBER_ID: {self.phone_number_id or 'NO CONFIGURADO'}")
+        logger.info(f"META_VERIFY_TOKEN: {self.verify_token or 'NO CONFIGURADO'}")
+
+        # Listar todas las variables META_ disponibles
+        meta_vars = {k: v[:20] + "..." for k, v in os.environ.items() if k.startswith("META_")}
+        logger.info(f"Variables META_ en entorno: {meta_vars}")
 
     async def validar_webhook(self, request: Request) -> dict | int | None:
         """Meta requiere verificación GET con hub.verify_token."""
@@ -26,17 +35,19 @@ class ProveedorMeta(ProveedorWhatsApp):
         token = params.get("hub.verify_token")
         challenge = params.get("hub.challenge")
 
-        if token:
-            logger.info(f"Webhook validation attempt - mode: {mode}, token: {token[:20]}..., challenge: {challenge}")
-        else:
-            logger.info(f"Webhook validation attempt - no token provided")
+        logger.info(f"Webhook GET - mode={mode}, challenge={challenge}")
+        logger.info(f"Webhook GET - token recibido: {token}")
+        logger.info(f"Webhook GET - token esperado: {self.verify_token}")
+
+        if not self.verify_token:
+            logger.error("META_VERIFY_TOKEN no está configurado en el entorno")
+            return None
 
         if mode == "subscribe" and token == self.verify_token:
-            logger.info("✓ Webhook validation SUCCESS")
-            # Meta espera el challenge como respuesta en texto plano
+            logger.info(f"Webhook verificado correctamente, challenge={challenge}")
             return int(challenge)
 
-        logger.warning(f"✗ Webhook validation FAILED - Expected token: {self.verify_token[:20]}...")
+        logger.warning(f"Verificación fallida - tokens no coinciden")
         return None
 
     async def parsear_webhook(self, request: Request) -> list[MensajeEntrante]:
@@ -53,7 +64,7 @@ class ProveedorMeta(ProveedorWhatsApp):
                             telefono=msg.get("from", ""),
                             texto=msg.get("text", {}).get("body", ""),
                             mensaje_id=msg.get("id", ""),
-                            es_propio=False,  # Meta solo envía mensajes entrantes
+                            es_propio=False,
                         ))
 
         return mensajes

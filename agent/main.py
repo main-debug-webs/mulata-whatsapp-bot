@@ -1,18 +1,25 @@
+import os
 import logging
-import asyncio
-from fastapi import FastAPI, Request, Response, HTTPException
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from agent.providers import obtener_proveedor
-from agent.memory import inicializar_db, guardar_mensaje, obtener_historial
-from agent.brain import generar_respuesta
 from dotenv import load_dotenv
 
+# Cargar .env SOLO si existe (desarrollo local)
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("agentkit")
+
+# Log de diagnóstico: mostrar variables clave al importar
+logger.info(f"WHATSAPP_PROVIDER en entorno: {os.environ.get('WHATSAPP_PROVIDER', 'NO DEFINIDO')}")
+logger.info(f"META_VERIFY_TOKEN en entorno: {bool(os.environ.get('META_VERIFY_TOKEN'))}")
+logger.info(f"PORT en entorno: {os.environ.get('PORT', 'NO DEFINIDO')}")
+
+from agent.providers import obtener_proveedor
+from agent.memory import inicializar_db, guardar_mensaje, obtener_historial
+from agent.brain import generar_respuesta
 
 proveedor = obtener_proveedor()
 
@@ -22,7 +29,7 @@ async def lifespan(app: FastAPI):
     """Inicializa la BD al arrancar."""
     await inicializar_db()
     logger.info("Base de datos inicializada")
-    logger.info(f"Proveedor: {proveedor.__class__.__name__}")
+    logger.info(f"Proveedor activo: {proveedor.__class__.__name__}")
     yield
 
 
@@ -54,11 +61,12 @@ async def health_check():
 
 @app.get("/webhook")
 async def webhook_get(request: Request):
-    """Validación GET del webhook (solo Meta la requiere)."""
+    """Validación GET del webhook (requerido por Meta Cloud API)."""
     respuesta = await proveedor.validar_webhook(request)
     if respuesta is not None:
+        # Meta espera el challenge como texto plano, NO JSON
         return PlainTextResponse(str(respuesta))
-    return {"status": "ok"}
+    return PlainTextResponse("Verification failed", status_code=403)
 
 
 @app.post("/webhook")
@@ -73,17 +81,12 @@ async def webhook_post(request: Request):
 
             logger.info(f"Mensaje de {msg.telefono}: {msg.texto}")
 
-            # Obtener historial
             historial = await obtener_historial(msg.telefono)
-
-            # Generar respuesta
             respuesta = await generar_respuesta(msg.texto, historial)
 
-            # Guardar en BD
             await guardar_mensaje(msg.telefono, "user", msg.texto)
             await guardar_mensaje(msg.telefono, "assistant", respuesta)
 
-            # Enviar respuesta
             exito = await proveedor.enviar_mensaje(msg.telefono, respuesta)
             if not exito:
                 logger.error(f"Error al enviar respuesta a {msg.telefono}")
@@ -96,4 +99,5 @@ async def webhook_post(request: Request):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
