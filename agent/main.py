@@ -13,9 +13,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("agentkit")
 
 # Log de diagnóstico: mostrar variables clave al importar
-logger.info(f"WHATSAPP_PROVIDER en entorno: {os.environ.get('WHATSAPP_PROVIDER', 'NO DEFINIDO')}")
-logger.info(f"META_VERIFY_TOKEN en entorno: {bool(os.environ.get('META_VERIFY_TOKEN'))}")
-logger.info(f"PORT en entorno: {os.environ.get('PORT', 'NO DEFINIDO')}")
+logger.info(f"WHATSAPP_PROVIDER: {os.environ.get('WHATSAPP_PROVIDER', 'NO DEFINIDO')}")
+logger.info(f"PORT: {os.environ.get('PORT', 'NO DEFINIDO')}")
 
 from agent.providers import obtener_proveedor
 from agent.memory import inicializar_db, guardar_mensaje, obtener_historial
