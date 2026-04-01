@@ -1,7 +1,7 @@
 import os
 import logging
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
@@ -90,10 +90,11 @@ async def webhook_post(request: Request):
             if not exito:
                 logger.error(f"Error al enviar respuesta a {msg.telefono}")
 
-        return {"status": "ok"}
+        # Twilio espera TwiML (XML) como respuesta, no JSON
+        return Response(content="<Response></Response>", media_type="text/xml")
     except Exception as e:
         logger.error(f"Error procesando webhook: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        return Response(content="<Response></Response>", media_type="text/xml")
 
 
 if __name__ == "__main__":
