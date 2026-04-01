@@ -18,10 +18,28 @@ class ProveedorTwilio(ProveedorWhatsApp):
 
     async def parsear_webhook(self, request: Request) -> list[MensajeEntrante]:
         """Parsea el payload form-encoded de Twilio."""
-        form = await request.form()
+        content_type = request.headers.get("content-type", "")
+        logger.info(f"Twilio webhook - Content-Type: {content_type}")
+
+        # Intentar parsear como form data
+        try:
+            form = await request.form()
+            logger.info(f"Twilio webhook - Form keys: {list(form.keys())}")
+        except Exception as e:
+            # Si no es form data, intentar como JSON
+            logger.warning(f"Error parseando form data: {e}")
+            try:
+                body = await request.json()
+                logger.info(f"Twilio webhook - JSON body: {body}")
+            except Exception:
+                body_raw = await request.body()
+                logger.info(f"Twilio webhook - Raw body: {body_raw[:500]}")
+            return []
+
         texto = form.get("Body", "")
         telefono = form.get("From", "").replace("whatsapp:", "")
         mensaje_id = form.get("MessageSid", "")
+        logger.info(f"Twilio webhook - From: {form.get('From', '')}, Body: {texto}, SID: {mensaje_id}")
 
         if not texto:
             return []
