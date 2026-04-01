@@ -51,8 +51,8 @@ class ProveedorTwilio(ProveedorWhatsApp):
             es_propio=False,
         )]
 
-    async def enviar_mensaje(self, telefono: str, mensaje: str) -> bool:
-        """Envía mensaje via Twilio API."""
+    async def enviar_mensaje(self, telefono: str, mensaje: str, imagen_url: str = None) -> bool:
+        """Envía mensaje via Twilio API. Opcionalmente incluye una imagen."""
         if not all([self.account_sid, self.auth_token, self.phone_number]):
             logger.warning("Variables de Twilio no configuradas")
             return False
@@ -65,6 +65,9 @@ class ProveedorTwilio(ProveedorWhatsApp):
             "To": f"whatsapp:{telefono}",
             "Body": mensaje,
         }
+
+        if imagen_url:
+            data["MediaUrl"] = imagen_url
 
         try:
             async with httpx.AsyncClient() as client:
